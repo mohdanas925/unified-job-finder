@@ -1,0 +1,15 @@
+pandas
+numpy
+scikit-learn
+nltk
+spacy
+transformers
+torch
+sentence-transformers
+beautifulsoup4
+requests
+python-dotenv
+ipykernel
+jupyter
+-e .
+
