@@ -18,12 +18,32 @@ def clean_text(text):
     return text
 
 
+# import nltk
+# from nltk.corpus import stopwords
+
+# nltk.download('stopwords')
+
+# stop_words = set(stopwords.words('english'))
+
+# def remove_stopwords(text):
+#     if not isinstance(text, str):
+#         return text
+
+#     return ' '.join(
+#         word for word in text.split()
+#         if word not in stop_words
+#     )
+
+import streamlit as st
 import nltk
 from nltk.corpus import stopwords
 
-nltk.download('stopwords')
+@st.cache_resource
+def load_stopwords():
+    nltk.download('stopwords', quiet=True)
+    return set(stopwords.words('english'))
 
-stop_words = set(stopwords.words('english'))
+stop_words = load_stopwords()
 
 def remove_stopwords(text):
     if not isinstance(text, str):
@@ -31,25 +51,93 @@ def remove_stopwords(text):
 
     return ' '.join(
         word for word in text.split()
-        if word not in stop_words
+        if word.lower() not in stop_words
     )
 
 
-from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
+# from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
+# import torch
+
+# model_name = "AchrafSoltani/jobbert-ner-sonnet-v2"
+
+# tokenizer = AutoTokenizer.from_pretrained(model_name)
+# model = AutoModelForTokenClassification.from_pretrained(model_name)
+
+# ner = pipeline(
+#     "token-classification",
+#     model=model,
+#     tokenizer=tokenizer,
+#     aggregation_strategy="simple",
+#     device=0 if torch.cuda.is_available() else -1
+# )
+
+# def extract_skills(text):
+#     if not isinstance(text, str) or not text.strip():
+#         return []
+
+#     tokens = tokenizer.encode(text, add_special_tokens=False)
+
+#     chunk_size = 450
+#     skills = []
+
+#     for i in range(0, len(tokens), chunk_size):
+#         chunk_tokens = tokens[i:i + chunk_size]
+#         chunk_text = tokenizer.decode(
+#             chunk_tokens,
+#             skip_special_tokens=True
+#         )
+
+#         entities = ner(chunk_text)
+
+#         for ent in entities:
+#             if ent["entity_group"].upper() == "SKILL":
+#                 skill = ent["word"].strip()
+
+#                 # Remove standalone WordPiece fragments
+#                 if skill.startswith("##"):
+#                     continue
+
+#                 # Remove empty or invalid fragments
+#                 if not skill or skill in {"s", "ing", "ation", "-"}:
+#                     continue
+
+#                 if skill not in skills:
+#                     skills.append(skill)
+
+#     return skills
+
+
+import streamlit as st
 import torch
+from transformers import (
+    AutoTokenizer,
+    AutoModelForTokenClassification,
+    pipeline
+)
 
 model_name = "AchrafSoltani/jobbert-ner-sonnet-v2"
 
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForTokenClassification.from_pretrained(model_name)
 
-ner = pipeline(
-    "token-classification",
-    model=model,
-    tokenizer=tokenizer,
-    aggregation_strategy="simple",
-    device=0 if torch.cuda.is_available() else -1
-)
+@st.cache_resource
+def load_ner_model():
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    model = AutoModelForTokenClassification.from_pretrained(model_name)
+
+    ner = pipeline(
+        "token-classification",
+        model=model,
+        tokenizer=tokenizer,
+        aggregation_strategy="simple",
+        device=0 if torch.cuda.is_available() else -1
+    )
+
+    return tokenizer, ner
+
+
+# Load once and reuse across Streamlit reruns
+tokenizer, ner = load_ner_model()
+
 
 def extract_skills(text):
     if not isinstance(text, str) or not text.strip():
@@ -62,6 +150,7 @@ def extract_skills(text):
 
     for i in range(0, len(tokens), chunk_size):
         chunk_tokens = tokens[i:i + chunk_size]
+
         chunk_text = tokenizer.decode(
             chunk_tokens,
             skip_special_tokens=True
@@ -78,7 +167,9 @@ def extract_skills(text):
                     continue
 
                 # Remove empty or invalid fragments
-                if not skill or skill in {"s", "ing", "ation", "-"}:
+                if not skill or skill.lower() in {
+                    "s", "ing", "ation", "-"
+                }:
                     continue
 
                 if skill not in skills:
